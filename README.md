@@ -1,23 +1,23 @@
 # SQL4CSV - CSV/Excel SQL查询分析工具
 
-一个基于PyQt5的图形化工具，支持对CSV和Excel文件进行SQL查询和数据分析。
+一个基于PyQt5的图形化工具，支持对CSV和Excel文件进行SQL查询和数据分析。省去了手动创建数据库和表的步骤，直接对文件进行查询。
+让有SQL基础的人员也能够方便快捷分析表格文件。
 
 ## 主要特性
 
 - 📊 支持CSV和Excel文件导入
 - 🔍 使用DuckDB进行高性能SQL查询
-- 📈 内置数据可视化功能
+- 📈 内置简单的数据可视化功能
 - 📋 SQL查询模板管理
-- 🔬 自动数据分析报告
-- 📑 多表关联查询支持
-- 📋 表格数据复制功能 (Ctrl+C)
+- 🔬 简单的数据分析报告
+- 📑 查询结果导出
 
 ## 系统要求
 
 - Python 3.7+
 - Windows
 
-## 安装
+## 安装依赖
 
 1. 克隆或下载项目到本地
 2. 安装依赖包：
@@ -74,3 +74,8 @@ FROM sales_data
 GROUP BY category
 ORDER BY total_quantity DESC;
 ```
+
+## 界面展示
+
+![界面展示](./images/image1.png)
+![界面展示](./images/image2.png)
