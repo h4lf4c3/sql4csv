@@ -1,4 +1,4 @@
-import sqlite3
+import duckdb
 import pandas as pd
 from PyQt5.QtCore import QThread, pyqtSignal
 
@@ -19,16 +19,19 @@ class SQLQueryThread(QThread):
             self.progress_updated.emit(10)
             
             # 在当前线程中创建新的数据库连接
-            conn = sqlite3.connect(':memory:')
+            conn = duckdb.connect(':memory:')
             
             # 将所有表导入到数据库
             self.progress_updated.emit(20)
             for table_name, df in self.tables.items():
-                df.to_sql(table_name, conn, index=False, if_exists='replace')
+                # DuckDB可以直接从DataFrame创建表
+                df.to_sql(table_name, conn, index=False, if_exists="replace")
+                # conn.register(table_name, df)
             
             self.progress_updated.emit(50)
             # 执行查询
             result = pd.read_sql_query(self.sql_query, conn)
+            # result = conn.execute(self.sql_query).df()
             
             # 关闭连接
             conn.close()

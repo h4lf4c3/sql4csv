@@ -1,11 +1,11 @@
 import json
 import os
-import sqlite3
+import duckdb
 from datetime import datetime
 import numpy as np
 import pandas as pd
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt, QTimer, QEvent
+from PyQt5.QtGui import QFont, QKeySequence
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QTextEdit, QTableWidget, QTableWidgetItem,
@@ -245,11 +245,16 @@ class AdvancedCSVSQLEditor(QMainWindow):
         
         # 原始数据标签页
         self.original_table = QTableWidget()
+        self.original_table.setSelectionMode(QTableWidget.ContiguousSelection)  # 允许连续选择
         self.tab_widget.addTab(self.original_table, '📊 原始数据')
         
         # 查询结果标签页
         self.result_table = QTableWidget()
+        self.result_table.setSelectionMode(QTableWidget.ContiguousSelection)  # 允许连续选择
         self.tab_widget.addTab(self.result_table, '🔍 查询结果')
+        
+        # 为表格添加复制功能
+        self.setup_copy_functionality()
         
         # 图表标签页
         self.chart_widget = ChartWidget()
@@ -405,18 +410,17 @@ class AdvancedCSVSQLEditor(QMainWindow):
         return df
                 
     def create_database(self):
-        """创建内存SQLite数据库"""
+        """创建内存DuckDB数据库"""
         # 关闭旧连接（如果存在）
         if self.db_connection is not None:
             self.db_connection.close()
-            
         # 创建新连接
-        self.db_connection = sqlite3.connect(':memory:')
-        
+        self.db_connection = duckdb.connect(':memory:')
         # 将所有表导入到数据库
         for table_name, df in self.tables.items():
-            df.to_sql(table_name, self.db_connection, index=False, if_exists='replace')
-            
+            # DuckDB可以直接从DataFrame创建表
+            df.to_sql(table_name, self.db_connection, index=False, if_exists="replace")
+            # self.db_connection.register(table_name, df)
         # 启用执行按钮
         self.execute_btn.setEnabled(len(self.tables) > 0)
         
@@ -518,6 +522,75 @@ class AdvancedCSVSQLEditor(QMainWindow):
         """显示原始数据"""
         self.populate_table(self.original_table, self.df)
         
+    def setup_copy_functionality(self):
+        """设置表格的复制功能"""
+        # 为原始数据表和结果表安装事件过滤器
+        self.original_table.installEventFilter(self)
+        self.result_table.installEventFilter(self)
+        
+        # 添加右键菜单
+        self.original_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.original_table.customContextMenuRequested.connect(self.show_table_context_menu)
+        self.result_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.result_table.customContextMenuRequested.connect(self.show_table_context_menu)
+    
+    def eventFilter(self, source, event):
+        """事件过滤器，处理键盘事件"""
+        # 检查是否是键盘事件，以及事件源是否是表格
+        if (event.type() == QEvent.KeyPress and 
+            (source is self.original_table or source is self.result_table)):
+            
+            # 检查是否是Ctrl+C
+            if event.key() == Qt.Key_C and event.modifiers() == Qt.ControlModifier:
+                self.copy_selection(source)
+                return True  # 事件已处理
+                
+        # 其他事件交给默认处理器
+        return super().eventFilter(source, event)
+    
+    def copy_selection(self, table):
+        """复制表格中选中的单元格内容到剪贴板"""
+        selection = table.selectedRanges()
+        if not selection:  # 没有选中任何内容
+            return
+            
+        # 获取选中区域
+        selected_text = []
+        for ranges in selection:
+            for row in range(ranges.topRow(), ranges.bottomRow() + 1):
+                row_text = []
+                for col in range(ranges.leftColumn(), ranges.rightColumn() + 1):
+                    item = table.item(row, col)
+                    if item is not None:
+                        row_text.append(item.text())
+                    else:
+                        row_text.append('')  # 空单元格
+                selected_text.append('\t'.join(row_text))
+        
+        # 将内容复制到剪贴板
+        clipboard_text = '\n'.join(selected_text)
+        QApplication.clipboard().setText(clipboard_text)
+        
+        # 显示状态栏消息
+        self.statusBar().showMessage('已复制选中内容到剪贴板', 2000)
+    
+    def show_table_context_menu(self, position):
+        """显示表格右键菜单"""
+        # 确定事件源
+        sender = self.sender()
+        if not sender.selectedRanges():  # 没有选中任何内容
+            return
+            
+        # 创建右键菜单
+        from PyQt5.QtWidgets import QMenu, QAction
+        menu = QMenu()
+        copy_action = QAction('复制 (Ctrl+C)', self)
+        copy_action.triggered.connect(lambda: self.copy_selection(sender))
+        menu.addAction(copy_action)
+        
+        # 显示菜单
+        menu.exec_(sender.mapToGlobal(position))
+    
     def populate_table(self, table_widget, dataframe):
         """填充表格数据"""
         if dataframe is None or dataframe.empty:
