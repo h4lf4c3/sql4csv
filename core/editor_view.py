@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (
     QLabel, QPushButton, QTextEdit, QTableWidget, QTableWidgetItem,
     QFileDialog, QMessageBox, QSplitter, QTabWidget, QComboBox,
     QLineEdit, QGroupBox, QHeaderView, QCheckBox,
-    QSpinBox, QProgressBar, QDialog
+    QSpinBox, QProgressBar, QDialog, QApplication
 )
 
 from chart_widget import ChartWidget
